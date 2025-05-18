@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depositar Dinero</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script>
+        function mostrarCuenta() {
+            let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual"));
+            if (!usuarioActual) {
+                alert("⚠ No hay sesión activa. Redirigiendo al login...");
+                window.location.href = "index.html";
+                return;
+            }
+
+            let nombreUsuario = "Desconocido";
+            let numeroCuenta = "";
+
+            if (usuarioActual.pin === "0000") {
+                nombreUsuario = "Ash Ketchum";
+                numeroCuenta = "1234567890";
+            } else if (usuarioActual.pin === "1111") {
+                nombreUsuario = "Wilson Navarrete";
+                numeroCuenta = "0987654321";
+            } else if (usuarioActual.pin === "9999") {
+                nombreUsuario = "Alejandro Rico";
+                numeroCuenta = "0987654321";
+            }
+
+            document.getElementById("nombreUsuario").textContent = nombreUsuario;
+            document.getElementById("numeroCuenta").textContent = numeroCuenta;
+        }
+
+        function verificarSesion() {
+            let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual"));
+            if (!usuarioActual) {
+                alert("⚠ No hay sesión activa. Redirigiendo al login...");
+                window.location.href = "index.html";
+            }
+        }
+
+        window.onload = function() {
+            verificarSesion();
+            mostrarCuenta();
+        };
+
+        function regresarLogin() {
+            window.location.href = "login.html"; 
+        }
+
+        function consultarSaldo() {
+            let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual"));
+            if (!usuarioActual) {
+                alert("⚠ No hay sesión activa. Redirigiendo al login...");
+                window.location.href = "index.html";
+                return;
+            }
+
+            let saldo = parseFloat(localStorage.getItem(`saldo_${usuarioActual.pin}`) || 1000);
+
+            let popup = document.createElement("div");
+            popup.classList.add("popup");
+            popup.innerHTML = `
+                <div class="popup-content">
+                    <h3>Saldo Actual</h3>
+                    <p>Tu saldo es: <strong>$${saldo.toFixed(2)}</strong></p>
+                    <button onclick="cerrarPopup()">Cerrar</button>
+                </div>
+            `;
+            document.body.appendChild(popup);
+        }
+
+        function cerrarPopup() {
+            let popup = document.querySelector(".popup");
+            if (popup) {
+                popup.remove();
+            }
+        }
+
+        function realizarDeposito() {
+            let cantidad = parseFloat(document.getElementById("cantidad").value);
+            let pin = document.getElementById("pin").value;  
+            let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual"));
+            let saldo = parseFloat(localStorage.getItem(`saldo_${pin}`) || 1000);
+
+            if (pin.length !== 4 || isNaN(pin)) {
+                document.getElementById("mensaje-error").textContent = "⚠ El PIN debe ser de 4 dígitos.";
+                document.getElementById("mensaje-error").style.display = "block";
+                return;
+            }
+
+            const pinValidos = ["0000", "1111", "9999"];
+            if (!pinValidos.includes(pin)) {
+                document.getElementById("mensaje-error").textContent = "⚠ PIN incorrecto. Solo se permiten los PINs 0000, 1111 y 9999.";
+                document.getElementById("mensaje-error").style.display = "block";
+                return;
+            }
+
+            if (isNaN(cantidad) || cantidad < 1 || cantidad > 1000) {
+                document.getElementById("mensaje-error").textContent = "⚠ Ingrese una cantidad válida entre $1 y $1000.";
+                document.getElementById("mensaje-error").style.display = "block";
+                return;
+            } else {
+                document.getElementById("mensaje-error").textContent = "";
+                document.getElementById("mensaje-error").style.display = "none";
+            }
+
+            saldo += cantidad;
+            localStorage.setItem(`saldo_${pin}`, saldo);
+
+            guardarTransaccion(pin, cantidad, "Depósito");
+
+            alert(`¡Depósito exitoso! Has depositado $${cantidad}. Tu saldo actual es de $${saldo.toFixed(2)}.`);
+        }
+
+        function guardarTransaccion(pin, monto, tipo) {
+            let transacciones = JSON.parse(localStorage.getItem("transacciones")) || [];
+            let fecha = new Date().toLocaleString();
+            
+            transacciones.push({
+                pin: pin,
+                monto: monto,
+                tipo: tipo,
+                fecha: fecha
+            });
+
+            localStorage.setItem("transacciones", JSON.stringify(transacciones));
+        }
+    </script>
+  
+</head>
+<body>
+    <div class="acciones-container">
+        <h2>Bienvenido, <span id="nombreUsuario">Usuario</span></h2>
+        <p>Número de cuenta: <span id="numeroCuenta"></span></p>
+        
+        <button onclick="consultarSaldo()">Consultar Saldo</button>
+        <a href="retirar.html"><button>Retirar</button></a>
+        <button onclick="window.location.href='deposito.html'">Depositar</button>
+        <a href="servicios.html"><button>Pagar Servicios</button></a>
+        <button onclick="window.location.href='historial.html'">Ver Historial de Transacciones</button>
+        <button onclick="regresarLogin()">Cerrar Sesión</button>
+    </div>
+    
+    <div class="deposito-container">
+        <h2>Realizar Depósito</h2>
+        <p>Introduce tu PIN (4 dígitos):</p>
+        <input type="text" id="pin" required placeholder="PIN de 4 dígitos" maxlength="4">
+        <p>Introduce la cantidad a depositar (entre $1 y $1000):</p>
+        <input type="number" id="cantidad" min="1" max="9999" required placeholder="$" step="0.01">
+        <div id="mensaje-error" class="mensaje-error"></div>
+        <button onclick="realizarDeposito()">Depositar</button>
+    </div>
+</body>
+</html>

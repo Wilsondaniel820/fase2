@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial de Transacciones y Gráfica</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    .header-info { margin: 20px 0; }
+    .header-info span { font-weight: bold; }
+    .contenedor { display: flex; justify-content: center; align-items: flex-start; gap: 40px; margin-top: 20px; flex-wrap: wrap; }
+    table { border-collapse: collapse; width: 100%; max-width: 500px; margin: auto; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #2397c6; color: white; }
+    #graficoContainer { display: flex; justify-content: center; align-items: center; }
+    canvas { max-width: 300px; max-height: 300px; }
+    .boton-container { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+    button { padding: 10px 15px; background-color: #2397c6; color: white; border: none; cursor: pointer; font-size: 16px; border-radius: 5px; }
+    button:hover { background-color: #1e80a1; }
+  </style>
+</head>
+<body>
+
+  <div class="header-info">
+    <h2>Historial de Transacciones</h2>
+    <p>
+      Usuario: <span id="nombreUsuario"></span> |
+      Cuenta: <span id="numeroCuenta"></span> |
+      Saldo: <span id="saldoUsuario"></span>
+    </p>
+  </div>
+
+  <div class="contenedor">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo de Transacción</th>
+          <th>Monto</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-transacciones"></tbody>
+    </table>
+
+    <div id="graficoContainer">
+      <canvas id="graficoTransacciones" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="boton-container">
+    <button onclick="window.location.href='acciones.html'">
+      Volver al Menú Principal
+    </button>
+    <button onclick="generarComprobante()">
+      Imprimir Comprobante PDF
+    </button>
+    
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      mostrarInfoUsuario();
+      cargarHistorial();
+    });
+
+    async function generarComprobante() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("Comprobante de Transacciones", 14, 20);
+      const usuario = JSON.parse(localStorage.getItem("usuarioActual"));
+      const pin = usuario.pin;
+      const cuenta = usuario.cuenta;
+      const saldo = parseFloat(localStorage.getItem(`saldo_${pin}`)) ?? 0;
+      doc.setFontSize(12);
+      doc.text(`Usuario: ${usuario.nombre}`, 14, 30);
+      doc.text(`Cuenta: ${cuenta}`, 14, 36);
+      doc.text(`Saldo: $${saldo.toFixed(2)}`, 14, 42);
+      const trans = JSON.parse(localStorage.getItem("transacciones")) || [];
+      const filtro = trans.filter(t => t.pin === pin);
+      doc.autoTable({
+        startY: 52,
+        head: [["Fecha", "Tipo", "Monto"]],
+        body: filtro.map(t => [t.fecha, t.tipo, `$${t.monto.toFixed(2)}`]),
+        theme: 'grid',
+        headStyles: { fillColor: [35,151,198] }
+      });
+      doc.save(`comprobante_${pin}.pdf`);
+    }
+
+    function mostrarInfoUsuario() {
+      const usuario = JSON.parse(localStorage.getItem("usuarioActual"));
+      if (!usuario) {
+        alert("No hay sesión activa. Redirigiendo al login.");
+        window.location.href = "login.html";
+        return null;
+      }
+      const saldoReal = parseFloat(localStorage.getItem(`saldo_${usuario.pin}`)) ?? 0;
+      document.getElementById("nombreUsuario").textContent = usuario.nombre;
+      document.getElementById("numeroCuenta").textContent = usuario.cuenta;
+      document.getElementById("saldoUsuario").textContent = `$${saldoReal.toFixed(2)}`;
+      return usuario.pin;
+    }
+
+    function cargarHistorial() {
+      const pinUsuario = mostrarInfoUsuario();
+      if (!pinUsuario) return;
+      const todas = JSON.parse(localStorage.getItem("transacciones")) || [];
+      const transaccionesUsuario = todas.filter(t => t.pin === pinUsuario);
+      const tabla = document.getElementById("tabla-transacciones");
+      tabla.innerHTML = "";
+
+      if (transaccionesUsuario.length === 0) {
+        tabla.innerHTML = "<tr><td colspan='3'>No hay transacciones registradas.</td></tr>";
+      } else {
+        transaccionesUsuario.forEach(t => {
+          const fila = document.createElement("tr");
+          fila.innerHTML = `
+            <td>${t.fecha}</td>
+            <td>${t.tipo}</td>
+            <td>$${t.monto.toFixed(2)}</td>
+          `;
+          tabla.appendChild(fila);
+        });
+      }
+      crearGrafico(transaccionesUsuario);
+    }
+
+    let miGrafico;
+    function crearGrafico(transacciones) {
+      const conteo = {};
+      transacciones.forEach(t => {
+        conteo[t.tipo] = (conteo[t.tipo] || 0) + 1;
+      });
+      const labels = Object.keys(conteo);
+      const datos  = Object.values(conteo);
+      const ctx    = document.getElementById("graficoTransacciones").getContext("2d");
+      if (miGrafico) miGrafico.destroy();
+      miGrafico = new Chart(ctx, {
+        type: 'pie',
+        data: { labels, datasets: [{ data: datos, backgroundColor: ['#2397c6','#1e80a1','#f39c12','#e74c3c','#8e44ad'], borderWidth:1 }] },
+        options: {
+          responsive: false,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: true, text: 'Análisis de Tipos de Transacciones' }
+          }
+        }
+      });
+    }
+
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pantalla de Acciones</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- ValidateJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
+  <script>
+    // Definición global de usuarios (para nombre y cuenta)
+    const usuarios = {
+      "0000": { nombre: "Ash Ketchum", cuenta: "1234567890", saldoInicial: 0.00 },
+      "1111": { nombre: "Wilson Navarrete",    cuenta: "0987654321", saldoInicial: 0.00 },
+    
+    };
+
+    window.onload = function() {
+      verificarSesion();
+      mostrarCuentaActiva();
+    };
+
+    function verificarSesion() {
+      const usuarioActual = JSON.parse(localStorage.getItem("usuarioActual"));
+      if (!usuarioActual) {
+        alert("⚠ No hay sesión activa. Redirigiendo al login...");
+        window.location.href = "login.html";
+      }
+    }
+
+    function mostrarCuentaActiva() {
+      const usuarioActual = JSON.parse(localStorage.getItem("usuarioActual"));
+      const data = usuarios[usuarioActual.pin] || {};
+
+      // Mostrar nombre y cuenta
+      document.getElementById("nombreUsuario").textContent = data.nombre || "Desconocido";
+      document.getElementById("numeroCuenta").textContent = data.cuenta || "";
+
+      // Inicializar saldo en localStorage si no existe aún
+      const key = `saldo_${usuarioActual.pin}`;
+      if (localStorage.getItem(key) === null) {
+        localStorage.setItem(key, data.saldoInicial.toFixed(2));
+      }
+
+      // Obtener y mostrar saldo real
+      const saldoReal = parseFloat(localStorage.getItem(key));
+      document.getElementById("saldoUsuario").textContent = `$${saldoReal.toFixed(2)}`;
+    }
+
+    // Ejemplo de validación para futuros formularios
+    function validarFormulario(formId) {
+      const constraints = {
+        monto: {
+          presence: { allowEmpty: false, message: "^El monto es obligatorio" },
+          numericality: { greaterThan: 0, message: "^El monto debe ser mayor que cero" }
+        }
+      };
+      const form = document.getElementById(formId);
+      const values = validate.collectFormValues(form);
+      const errors = validate(values, constraints);
+      form.querySelectorAll(".error").forEach(el => el.remove());
+      if (errors) {
+        for (const campo in errors) {
+          const input = form.querySelector(`[name="${campo}"]`);
+          const msg = document.createElement("span");
+          msg.classList.add("error", "text-danger", "d-block");
+          msg.textContent = errors[campo][0];
+          input.parentNode.appendChild(msg);
+        }
+        return false;
+      }
+      return true;
+    }
+  </script>
+</head>
+<body class="p-4 bg-light">
+  <div class="acciones-container container">
+    <h2>
+      Bienvenido, <span id="nombreUsuario">Usuario</span>
+    </h2>
+    <p>
+      Número de cuenta: <span id="numeroCuenta"></span><br>
+      Saldo: <strong><span id="saldoUsuario"></span></strong>
+    </p>
+
+    <div class="my-4">
+      <button class="btn btn-primary me-2" onclick="window.location.href='retirar.html'">Retirar</button>
+      <button class="btn btn-success me-2" onclick="window.location.href='deposito.html'">Depositar</button>
+      <button class="btn btn-warning me-2" onclick="window.location.href='servicios.html'">Pagar Servicios</button>
+      <button class="btn btn-info me-2" onclick="window.location.href='historial.html'">Ver Historial</button>
+      <button class="btn btn-secondary" onclick="window.location.href='login.html'">Cerrar Sesión</button>
+    </div>
+  </div>
+</body>
+</html>
